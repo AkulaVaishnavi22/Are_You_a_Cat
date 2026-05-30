@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 
-# Suppress unnecessary log clutter in your terminal
+# Suppress log clutter
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 DATA_DIR = os.path.join("data")
@@ -30,20 +30,26 @@ validation_dataset = tf.keras.utils.image_dataset_from_directory(
     label_mode="categorical"
 )
 
-class_names = train_dataset.class_names
-print(f"\n✅ Successfully identified classes: {class_names}")
-
 AUTOTUNE = tf.data.AUTOTUNE
 train_dataset = train_dataset.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
 validation_dataset = validation_dataset.cache().prefetch(buffer_size=AUTOTUNE)
 
-print("🚀 Day 4 Setup Complete!")
+# --- 🔥 UPGRADE: DATA AUGMENTATION LAYER ---
+# This forces the model to look at shapes instead of just colors/backgrounds
+data_augmentation = tf.keras.Sequential([
+    tf.keras.layers.RandomFlip("horizontal"),
+    tf.keras.layers.RandomRotation(0.5),
+    tf.keras.layers.RandomZoom(0.1),
+])
 
-print("\n🧠 Building the Convolutional Neural Network (CNN)...")
+print("\n🧠 Building the Upgraded CNN Model...")
 
-# FIXED Keras 3 Warning Layout by separating the Input definition layer
 model = tf.keras.models.Sequential([
-    tf.keras.layers.Input(shape=(150, 150, 3)), 
+    tf.keras.layers.Input(shape=(150, 150, 3)),
+    
+    # Apply data augmentation to training data
+    data_augmentation,
+    
     tf.keras.layers.Rescaling(1./255),
     
     tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
@@ -57,6 +63,10 @@ model = tf.keras.models.Sequential([
     
     tf.keras.layers.Flatten(),
     tf.keras.layers.Dense(128, activation='relu'),
+    
+    # Dropout layer drops 30% of neurons randomly to prevent overfitting/memorization
+    tf.keras.layers.Dropout(0.3), 
+    
     tf.keras.layers.Dense(3, activation='softmax')
 ])
 
@@ -66,26 +76,17 @@ model.compile(
     metrics=['accuracy']
 )
 
-model.summary()
+# --- 📈 UPGRADE: MORE EPOCHS ---
+# 5 epochs wasn't enough time for the model to understand the features. Let's do 15!
+EPOCHS = 15
+print(f"\n🚀 Training upgraded model for {EPOCHS} epochs...")
 
-EPOCHS = 5
-print(f"\n🚀 Starting training for {EPOCHS} epochs...")
-
-history = model.fit(
+model.fit(
     train_dataset,
     validation_data=validation_dataset,
     epochs=EPOCHS
 )
 
-# ==========================================
-# 💾 DAY 6 ADDITION: SAVE THE MODEL ARTIFACT
-# ==========================================
-print("\n💾 Saving trained model to disk...")
-MODEL_NAME = "baseline_cat_model.h5"
-model.save(MODEL_NAME)
-
-if os.path.exists(MODEL_NAME):
-    print(f"🎉 Success! Your model file was created: '{MODEL_NAME}'")
-    print("Day 6 complete. You are ready to start building the frontend UI next week!")
-else:
-    print("⚠️ Warning: Model file was not detected on disk.")
+print("\n💾 Saving updated model...")
+model.save("baseline_cat_model.h5")
+print("🎉 Done! Re-run your Streamlit app now and test the image again.")
