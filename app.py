@@ -4,8 +4,8 @@ import tensorflow as tf
 from PIL import Image, ImageOps
 import numpy as np
 import datetime
+import mlflow  # 🔥 NEW FOR DAY 18: Import MLflow tracking suite
 
-# Day 14: Force wide layout for dashboard metrics placement
 tf_streamlit.set_page_config(page_title="Are You a Cat? Production Dashboard", layout="wide")
 
 MODEL_PATH = "baseline_cat_model.h5"
@@ -13,7 +13,7 @@ DATA_DIR = "data"
 LOG_DIR = os.path.join(DATA_DIR, "logged_feedback")
 CLASS_NAMES = ['cats', 'dogs', 'humans']
 
-# --- 📊 DAY 14: PRODUCTION METRICS & ANALYTICS SIDEBAR ---
+# --- PRODUCTION METRICS & ANALYTICS SIDEBAR ---
 with tf_streamlit.sidebar:
     tf_streamlit.title("📊 MLOps Command Center")
     tf_streamlit.write("### Dataset Balance Distribution")
@@ -27,20 +27,18 @@ with tf_streamlit.sidebar:
         else:
             counts[c_name] = 0
         
-        # Display large clean metric cards
         tf_streamlit.metric(label=f"Total {c_name.capitalize()}", value=counts[c_name])
             
     tf_streamlit.divider()
     
-    # Day 14 System Health Calculator
     tf_streamlit.write("### Data Integrity Status")
     max_val = max(counts.values()) if counts.values() else 0
     min_val = min(counts.values()) if counts.values() else 0
     
     if max_val > 0 and (min_val / max_val) < 0.3:
-        tf_streamlit.error("⚠️ Dataset Imbalance Detected! Add more data to minor classes to avoid prediction bias.")
+        tf_streamlit.error("⚠️ Dataset Imbalance Detected! Add more data to minor classes.")
     else:
-        tf_streamlit.success("🟢 Dataset Balance Healthy. Model bias risks are currently low.")
+        tf_streamlit.success("🟢 Dataset Balance Healthy. Bias risks are low.")
         
     if os.path.exists(LOG_DIR):
         total_logs = len([f for f in os.listdir(LOG_DIR) if os.path.isfile(os.path.join(LOG_DIR, f))])
@@ -53,7 +51,7 @@ with tf_streamlit.expander("💡 Production System Operational Guidelines"):
     tf_streamlit.write("""
     * **📸 Crop it close:** Upload a close-up portrait or selfie.
     * **🧍 Center the subject:** Make sure the face/pet is the main focus.
-    * **🌿 Clean backgrounds:** Avoid heavily patterned or crowded backgrounds.
+    * **🌿 Clean backgrounds:** Avoid heavily patterned backgrounds.
     """)
 
 @tf_streamlit.cache_resource
@@ -120,7 +118,7 @@ if uploaded_file is not None:
         else:
             tf_streamlit.warning("Please train the model using the dashboard below first.")
 
-        # Day 11 & 12 Feedback Layout
+        # Feedback Layout
         tf_streamlit.write("---")
         tf_streamlit.write("📝 **Was this prediction accurate?**")
         
@@ -137,7 +135,7 @@ if uploaded_file is not None:
                 tf_streamlit.error("Discrepancy logged for review.")
                 tf_streamlit.rerun()
 
-        # Day 13 Active Learning Pipeline Injection Node
+        # Active Learning Data Collector
         tf_streamlit.write("---")
         tf_streamlit.write("🛠️ **Active Learning Data Collector**")
         
@@ -158,13 +156,14 @@ if uploaded_file is not None:
             tf_streamlit.success("Injected successfully into backend dataset matrices.")
             tf_streamlit.rerun()
 
-# Admin Control Matrix for One-Click Background Retraining
+# --- ADMIN RETRAINING PANEL WITH LIVE AUTOLOGGING TRACKER ---
 tf_streamlit.write("---")
 with tf_streamlit.expander("⚙️ Admin MLOps Training Dashboard", expanded=False):
     tf_streamlit.write("Click below to retrain the MobileNetV2 network using all accumulated user data simultaneously.")
     
     if tf_streamlit.button("⚡ Start Background Retraining Loop"):
         with tf_streamlit.spinner("Training in progress... Do not close this tab."):
+            
             IMAGE_SIZE = (150, 150)
             BATCH_SIZE = 32
             
@@ -185,30 +184,38 @@ with tf_streamlit.expander("⚙️ Admin MLOps Training Dashboard", expanded=Fal
                 tf.keras.layers.RandomZoom(0.1)
             ])
             
-            base_model = tf.keras.applications.MobileNetV2(
-                input_shape=(150, 150, 3), include_top=False, weights='imagenet'
-            )
-            base_model.trainable = False
+            # --- 🔥 DAY 18: ENABLE AUTOMATIC MLFLOW LOGGING RUNS ---
+            mlflow.set_experiment("Cat_Dog_Human_Production_Classifier")
+            mlflow.tensorflow.autolog()
             
-            retrained_model = tf.keras.models.Sequential([
-                tf.keras.layers.Input(shape=(150, 150, 3)),
-                data_augmentation,
-                tf.keras.layers.Rescaling(1./127.5, offset=-1),
-                base_model,
-                tf.keras.layers.GlobalAveragePooling2D(),
-                tf.keras.layers.Dropout(0.3),
-                tf.keras.layers.Dense(3, activation='softmax')
-            ])
+            # Open an explicit tracking execution context window
+            with mlflow.start_run():
+                
+                base_model = tf.keras.applications.MobileNetV2(
+                    input_shape=(150, 150, 3), include_top=False, weights='imagenet'
+                )
+                base_model.trainable = False
+                
+                retrained_model = tf.keras.models.Sequential([
+                    tf.keras.layers.Input(shape=(150, 150, 3)),
+                    data_augmentation,
+                    tf.keras.layers.Rescaling(1./127.5, offset=-1),
+                    base_model,
+                    tf.keras.layers.GlobalAveragePooling2D(),
+                    tf.keras.layers.Dropout(0.3),
+                    tf.keras.layers.Dense(3, activation='softmax')
+                ])
+                
+                retrained_model.compile(
+                    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), 
+                    loss='categorical_crossentropy', 
+                    metrics=['accuracy']
+                )
+                
+                # Training executes while MLflow captures the metrics automatically
+                retrained_model.fit(train_ds, validation_data=val_ds, epochs=7)
+                retrained_model.save(MODEL_PATH)
+                tf_streamlit.cache_resource.clear()
             
-            retrained_model.compile(
-                optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), 
-                loss='categorical_crossentropy', 
-                metrics=['accuracy']
-            )
-            
-            retrained_model.fit(train_ds, validation_data=val_ds, epochs=7)
-            retrained_model.save(MODEL_PATH)
-            tf_streamlit.cache_resource.clear()
-            
-        tf_streamlit.success("🎉 Day 14 Master Build Retraining Complete! Deployment Stable.")
+        tf_streamlit.success("🎉 Retraining Complete! Run parameters tracked live to MLflow system repository.")
         tf_streamlit.rerun()
