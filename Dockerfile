@@ -1,29 +1,18 @@
-# 1. Base lightweight Python image
+# Step 1: Choose your base Python image
 FROM python:3.10-slim
 
-# 2. Prevent Python from buffering stdout/stderr
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# 3. Set workspace directory inside container
+# Step 2: Set working directory inside the container
 WORKDIR /app
 
-# 4. Install updated system dependencies (using libgl1 instead of libgl1-mesa-glx)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libgl1 \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
-
-# 5. Copy requirements and install Python dependencies
+# Step 3: Copy requirements file into the container
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# 6. Copy all project files into the container
-COPY . /app
+# Step 4: Upgrade pip and install packages with increased timeout & retries
+RUN pip install --upgrade pip && \
+    pip install --default-timeout=1000 --retries=5 --no-cache-dir -r requirements.txt
 
-# 7. Expose Streamlit port
-EXPOSE 8501
+# Step 5: Copy the rest of your app's code
+COPY . .
 
-# 8. Command to start Streamlit bound to port 8501
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Step 6: Command to run your application (adjust filename/command if needed)
+CMD ["python", "main.py"]
