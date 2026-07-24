@@ -8,10 +8,10 @@ ENV PYTHONUNBUFFERED=1
 # 3. Set workspace directory inside container
 WORKDIR /app
 
-# 4. Install system dependencies required by OpenCV / Pillow
+# 4. Install updated system dependencies (using libgl1 instead of libgl1-mesa-glx)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
