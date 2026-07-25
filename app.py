@@ -10,7 +10,9 @@ import mlflow
 import mlflow.keras
 
 st.set_page_config(page_title="Are You a Cat?", page_icon="🐱", layout="wide")
-
+st.write("📁 **Current Directory Files:**", os.listdir("."))
+if os.path.exists("models"):
+    st.write("📁 **Models Directory Files:**", os.listdir("models"))
 MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 DEFAULT_MODEL_PATH = os.path.join(MODEL_DIR, "baseline_cat_model.h5")
