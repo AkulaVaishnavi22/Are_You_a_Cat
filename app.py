@@ -10,24 +10,30 @@ import mlflow
 import mlflow.keras
 
 st.set_page_config(page_title="Are You a Cat?", page_icon="🐱", layout="wide")
-st.write("📁 **Current Directory Files:**", os.listdir("."))
-if os.path.exists("models"):
-    st.write("📁 **Models Directory Files:**", os.listdir("models"))
+
 MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
-DEFAULT_MODEL_PATH = os.path.join(MODEL_DIR, "baseline_cat_model.h5")
+
+# Function to dynamically search for .h5 files
+def get_available_models():
+    model_files = glob.glob(os.path.join(MODEL_DIR, "*.h5"))
+    if not model_files:
+        return []
+    return sorted(model_files, key=os.path.getmtime, reverse=True)
+
+# Auto-detect default model path if available
+available_models = get_available_models()
+if available_models:
+    DEFAULT_MODEL_PATH = available_models[0]
+else:
+    DEFAULT_MODEL_PATH = os.path.join(MODEL_DIR, "baseline_cat_model.h5")
+
 DATA_DIR = "data"
 CLASS_NAMES = ['cats', 'dogs', 'humans']
 
 # Configure MLflow SQLite backend
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
 mlflow.set_experiment("Cat_Dog_Human_Classification_Tracker")
-
-def get_available_models():
-    model_files = glob.glob(os.path.join(MODEL_DIR, "*.h5"))
-    if not model_files:
-        return []
-    return sorted(model_files, key=os.path.getmtime, reverse=True)
 
 if "selected_model_path" not in st.session_state:
     st.session_state.selected_model_path = DEFAULT_MODEL_PATH
@@ -117,6 +123,7 @@ if uploaded_file is not None:
             if st.button("💾 Save to Dataset for Retraining"):
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 save_path = os.path.join(DATA_DIR, correct_label, f"feedback_{correct_label}_{timestamp}.jpg")
+                os.makedirs(os.path.join(DATA_DIR, correct_label), exist_ok=True)
                 image.save(save_path)
                 st.success(f"✅ Saved image to `data/{correct_label}/` successfully!")
         else:
@@ -131,13 +138,13 @@ st.markdown("---")
 # Admin Panel
 with st.expander("⚙️ Admin Management & MLflow Tracking"):
     st.subheader("🔄 Model Version Rollback")
-    available_models = get_available_models()
+    available_models_list = get_available_models()
     
-    if available_models:
+    if available_models_list:
         selected_version = st.selectbox(
             "Select Checkpoint to Activate:",
-            available_models,
-            index=0 if st.session_state.selected_model_path not in available_models else available_models.index(st.session_state.selected_model_path)
+            available_models_list,
+            index=0 if st.session_state.selected_model_path not in available_models_list else available_models_list.index(st.session_state.selected_model_path)
         )
         if st.button("🔄 Activate Selected Version"):
             st.session_state.selected_model_path = selected_version
